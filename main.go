@@ -2,20 +2,14 @@ package main
 
 import (
 	"fmt"
-	"fyne.io/fyne/app"
-	"fyne.io/fyne/driver/desktop"
-	"io"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"strconv"
-
 	"fyne.io/fyne"
+	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
+	"fyne.io/fyne/driver/desktop"
 	"fyne.io/fyne/layout"
 	"fyne.io/fyne/widget"
 	"github.com/fyne-io/examples/img/icon"
+	"strconv"
 )
 
 var (
@@ -28,25 +22,8 @@ type Plotlib struct {
 	coord *widget.Label
 }
 
-func (pl *Plotlib) downloadImage(url string) {
-	response, e := http.Get(url)
-	if e != nil {
-		log.Fatal(e)
-	}
-	defer response.Body.Close()
-
-	file, err := ioutil.TempFile(os.TempDir(), "Plotlib.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pl.image.File = file.Name()
+func (pl *Plotlib) downloadImage(fileName string) {
+	pl.image.File = "/Users/adrien/Dev/go/src/github.com/adrien3d/go-plotlib/chart-"+fileName+".png"
 	canvas.Refresh(pl.image)
 }
 
@@ -63,7 +40,8 @@ func (img *CustomImage) MouseOut() {
 }
 
 func (img *CustomImage) MouseMoved(me *desktop.MouseEvent) {
-	pl.coord.SetText("Coord: X:" + strconv.Itoa(me.Position.X) + "    Y:" + strconv.Itoa(me.Position.Y))
+	//fmt.Println(me, pl.image.Position())
+	pl.coord.SetText("Coord: X:" + strconv.Itoa(me.Position.X) + "    Y:" + strconv.Itoa(600 - me.Position.Y))
 }
 
 // Show starts a new Plotlib widget
@@ -71,7 +49,7 @@ func Show(app fyne.App) {
 	w := app.NewWindow("Plotlib Viewer")
 	w.SetIcon(icon.XKCDBitmap)
 
-	go pl.downloadImage("https://www.google.fr/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png")
+	go pl.downloadImage("indy-500-laps")
 	submit := widget.NewButton("Submit", func() {
 		//x.Submit()
 	})
@@ -94,6 +72,7 @@ func Show(app fyne.App) {
 }
 
 func main() {
+	DrawExampleChart("indy-500-laps")
 	launch := Show
 	ex := app.New()
 	launch(ex)
