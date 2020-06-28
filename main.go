@@ -13,7 +13,10 @@ var (
 	positionLabel *ui.Label
 
 	currentPoint = -1
-	lineLength = 10
+	lineLength   = 10
+	inputData    [][]float64
+	dataLimits   [5]float64 //xMin, xMax, yMin, yMax, nValues
+	//graphDimensions [2]int64
 )
 
 // some metrics
@@ -50,27 +53,28 @@ func getData(filename string) [][]float64 {
 	csvData := utils.OpenCSV(filename)
 	datas := make([][]float64, len(csvData[0]))
 
-	for _, deviceData := range csvData {
+	dataLimits = [5]float64{csvData[0][0], csvData[len(csvData)-1][0], csvData[0][1], csvData[0][1], float64(len(csvData))}
+	for i := 0; i < len(csvData); i++ {
 		//timestamps = append(timestamps, time.Date(int(deviceData[0]), 1, 1, 0, 0, 0, 0, time.UTC))
-		datas[0] = append(datas[0], deviceData[0])
-		datas[1] = append(datas[1], deviceData[1])
-		datas[2] = append(datas[2], deviceData[2])
+		datas[0] = append(datas[0], csvData[i][0])
+		datas[1] = append(datas[1], csvData[i][1])
+		datas[2] = append(datas[2], csvData[i][2])
+		if csvData[i][1] > dataLimits[3] {
+			dataLimits[3] = csvData[i][1]
+		} else if csvData[i][1] < dataLimits[2] {
+			dataLimits[2] = csvData[i][1]
+		}
 	}
 	return datas
 }
 
-func pointLocations(width, height float64) (xs, ys [100]float64) {
-	data := getData("indy-500-laps")
-	lineLength = len(data[0])
-	xincr := width / float64(lineLength) - 1 // 10 - 1 to make the last point be at the end
-	//yincr := height / 10
+func pointLocations(areaWidth, areaHeight float64) (xs, ys [100]float64) {
+	lineLength = int(dataLimits[4])
+	xincr := areaWidth / float64(lineLength) // - 1 to make the last point be at the end
+	yincr := areaHeight / (dataLimits[3] - dataLimits[2])
 	for i := 0; i < lineLength; i++ {
-		// get the value of the point
-		n := data[1][i]
-		// because y=0 is the top but n=0 is the bottom, we need to flip
-		n = 100 - n
 		xs[i] = xincr * float64(i)
-		ys[i] = float64(n)
+		ys[i] = (yincr * inputData[1][i]) - yincr*dataLimits[2]
 	}
 	return xs, ys
 }
@@ -111,7 +115,7 @@ func (areaHandler) Draw(a *ui.Area, p *ui.AreaDrawParams) {
 
 	// now transform the coordinate space so (0, 0) is the top-left corner of the graph
 	m := ui.DrawNewMatrix()
-	m.Translate(xoffLeft, yoffTop)
+	m.Translate(xoffLeft, yoffBottom)
 	p.Context.Transform(m)
 
 	brush = mkSolidBrush(colorDodgerBlue, 1.0)
@@ -119,9 +123,9 @@ func (areaHandler) Draw(a *ui.Area, p *ui.AreaDrawParams) {
 	xs, ys := pointLocations(graphWidth, graphHeight)
 	path = ui.DrawNewPath(ui.DrawFillModeWinding)
 
-	path.NewFigure(xs[0], ys[0])
+	path.NewFigure(xs[0], graphHeight-ys[0])
 	for i := 1; i < lineLength; i++ {
-		path.LineTo(xs[i], ys[i])
+		path.LineTo(xs[i], graphHeight-10-ys[i])
 	}
 
 	path.End()
@@ -130,13 +134,8 @@ func (areaHandler) Draw(a *ui.Area, p *ui.AreaDrawParams) {
 
 	// now draw the point being hovered over
 	if currentPoint != -1 {
-		xs, ys := pointLocations(graphWidth, graphHeight)
 		path = ui.DrawNewPath(ui.DrawFillModeWinding)
-		path.NewFigureWithArc(
-			xs[currentPoint], ys[currentPoint],
-			pointRadius,
-			0, 6.23, // TODO pi
-			false)
+		path.NewFigureWithArc(xs[currentPoint], graphHeight-ys[currentPoint]-10, pointRadius, 0, 6.23, false)
 		path.End()
 		// use the same brush as for the histogram lines
 		p.Context.Fill(path, brush)
@@ -160,13 +159,22 @@ func (areaHandler) MouseEvent(a *ui.Area, me *ui.AreaMouseEvent) {
 
 	currentPoint = -1
 	for i := 0; i < lineLength; i++ {
-		if inPoint(me.X, me.Y, xs[i], ys[i]) {
+		if inPoint(me.X, me.Y, xs[i], graphHeight-ys[i]) {
 			currentPoint = i
 			break
 		}
 	}
+	properX, properY := dataLimits[0]+(me.X-xoffLeft)*((dataLimits[1]-dataLimits[0])/graphWidth), dataLimits[2]+(graphHeight-me.Y+yoffTop)*((dataLimits[3]-dataLimits[2])/graphHeight)
 
-	positionLabel.SetText("X:" + fmt.Sprintf("%f", me.X) + "\t Y:" + fmt.Sprintf("%f", me.AreaHeight-me.Y))
+	//TODO: Scale from relative position to graph values
+	if properX < dataLimits[0] {
+		properX = dataLimits[0]
+	}
+	if properY < dataLimits[2] {
+		properY = dataLimits[2]
+	}
+
+	positionLabel.SetText("X:" + fmt.Sprintf("%f", properX) + "\t Y:" + fmt.Sprintf("%f", properY))
 
 	// TODO only redraw the relevant area
 	histogram.QueueRedrawAll()
@@ -186,6 +194,7 @@ func (areaHandler) KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) (handled bool) {
 }
 
 func setupUI() {
+	inputData = getData("indy-500-laps")
 	mainwin := ui.NewWindow("Figure 1", 640, 480, true)
 	mainwin.SetMargined(false)
 	mainwin.OnClosing(func(*ui.Window) bool {
