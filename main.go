@@ -59,18 +59,18 @@ func getData(filename string) [][]float64 {
 	return datas
 }
 
-func pointLocations(width, height float64) (xs, ys [10]float64) {
+func pointLocations(width, height float64) (xs, ys [100]float64) {
 	data := getData("indy-500-laps")
-	fmt.Println(data[0])
-	xincr := width / 9 // 10 - 1 to make the last point be at the end
-	yincr := height / 10
+	lineLength = len(data[0])
+	xincr := width / float64(lineLength) - 1 // 10 - 1 to make the last point be at the end
+	//yincr := height / 10
 	for i := 0; i < lineLength; i++ {
 		// get the value of the point
-		n := 50
+		n := data[1][i]
 		// because y=0 is the top but n=0 is the bottom, we need to flip
 		n = 100 - n
 		xs[i] = xincr * float64(i)
-		ys[i] = yincr * float64(i)
+		ys[i] = float64(n)
 	}
 	return xs, ys
 }
