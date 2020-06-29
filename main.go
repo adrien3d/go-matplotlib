@@ -16,6 +16,7 @@ var (
 	lineLength   = 10
 	inputData    [][]float64
 	dataLimits   [5]float64 //xMin, xMax, yMin, yMax, nValues
+	datasetNames []string
 	//graphDimensions [2]int64
 )
 
@@ -50,7 +51,8 @@ const (
 )
 
 func getData(filename string) [][]float64 {
-	csvData := utils.OpenCSV(filename)
+	dsNames, csvData := utils.OpenCSV(filename)
+	datasetNames = dsNames
 	datas := make([][]float64, len(csvData[0]))
 
 	dataLimits = [5]float64{csvData[0][0], csvData[len(csvData)-1][0], csvData[0][1], csvData[0][1], float64(len(csvData))}
@@ -207,22 +209,29 @@ func setupUI() {
 		return true
 	})
 
-	vbox := ui.NewVerticalBox()
-	vbox.SetPadded(true)
-	mainwin.SetChild(vbox)
+	vboxMain := ui.NewVerticalBox()
 
 	histogram = ui.NewArea(areaHandler{})
+
+	vBoxFiles := ui.NewVerticalBox()
+	for _, datasetName := range datasetNames {
+		vBoxFiles.Append(ui.NewCheckbox(datasetName), false)
+	}
+
+	hboxGraphAndFiles := ui.NewHorizontalBox()
+	hboxGraphAndFiles.Append(histogram, false)
+	hboxGraphAndFiles.Append(vBoxFiles, false)
+
+	hboxTools := ui.NewHorizontalBox()
 	resetButton = ui.NewButton("Home")
-
-	vbox.Append(histogram, false)
-	vbox.Append(ui.NewVerticalSeparator(), false)
-
-	hbox := ui.NewHorizontalBox()
-	hbox.SetPadded(true)
-	hbox.Append(resetButton, false)
 	positionLabel = ui.NewLabel("X: \t Y:")
-	hbox.Append(positionLabel, false)
-	vbox.Append(hbox, false)
+	hboxTools.Append(resetButton, false)
+	hboxTools.Append(positionLabel, false)
+
+	vboxMain.Append(hboxGraphAndFiles, false)
+	vboxMain.Append(hboxTools, false)
+
+	mainwin.SetChild(vboxMain)
 
 	mainwin.Show()
 }
