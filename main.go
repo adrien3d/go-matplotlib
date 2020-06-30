@@ -12,11 +12,12 @@ var (
 	resetButton   *ui.Button
 	positionLabel *ui.Label
 
-	currentPoint = -1
-	lineLength   = 10
-	inputData    [][]float64
-	dataLimits   [5]float64 //xMin, xMax, yMin, yMax, nValues
-	datasetNames []string
+	currentPoint    = -1
+	lineLength      = 10
+	inputData       [][]float64
+	dataLimits      [5]float64 //xMin, xMax, yMin, yMax, nValues
+	datasetNames    []string
+	datasetSelected []int64
 	//graphDimensions [2]int64
 )
 
@@ -51,32 +52,54 @@ const (
 )
 
 func getData(filename string) [][]float64 {
-	dsNames, csvData := utils.OpenCSV(filename)
-	datasetNames = dsNames
+	columnNames, csvData := utils.OpenCSV(filename)
+	datasetNames = columnNames
 	datas := make([][]float64, len(csvData[0]))
 
-	dataLimits = [5]float64{csvData[0][0], csvData[len(csvData)-1][0], csvData[0][1], csvData[0][1], float64(len(csvData))}
-	for i := 0; i < len(csvData); i++ {
+	//dataLimits = [5]float64{csvData[0][0], csvData[len(csvData)-1][0], csvData[0][1], csvData[0][1], float64(len(csvData))}
+	for i := 0; i < len(csvData); i++ { //all lines
 		//timestamps = append(timestamps, time.Date(int(deviceData[0]), 1, 1, 0, 0, 0, 0, time.UTC))
 		datas[0] = append(datas[0], csvData[i][0])
 		datas[1] = append(datas[1], csvData[i][1])
 		datas[2] = append(datas[2], csvData[i][2])
-		if csvData[i][1] > dataLimits[3] {
+		/*if csvData[i][1] > dataLimits[3] {
 			dataLimits[3] = csvData[i][1]
 		} else if csvData[i][1] < dataLimits[2] {
 			dataLimits[2] = csvData[i][1]
-		}
+		}*/
 	}
 	return datas
 }
 
+func refreshLimits() {
+	dataLimits = [5]float64{inputData[0][0], inputData[0][len(inputData[0])-1], inputData[1][0], inputData[1][len(inputData[1])-1], float64(len(inputData[0]))}
+	for _, dsSelectedIndex := range datasetSelected { // Up to 3
+		for j := 0; j < len(inputData[dsSelectedIndex]); j++ { // All file length (i.e. 70)
+			//X
+			if inputData[0][j] < dataLimits[0] {
+				dataLimits[0] = inputData[0][j]
+			}
+			if inputData[0][j] > dataLimits[1] {
+				dataLimits[1] = inputData[0][j]
+			}
+			//Y
+			if inputData[dsSelectedIndex][j] < dataLimits[2] {
+				dataLimits[2] = inputData[dsSelectedIndex][j]
+			}
+			if inputData[dsSelectedIndex][j] > dataLimits[3] {
+				dataLimits[3] = inputData[dsSelectedIndex][j]
+			}
+		}
+	}
+}
+
 func pointLocations(areaWidth, areaHeight float64) (xs, ys [100]float64) {
 	lineLength = int(dataLimits[4])
-	xincr := areaWidth / float64(lineLength) // - 1 to make the last point be at the end
-	yincr := areaHeight / (dataLimits[3] - dataLimits[2])
+	xincr := areaWidth / (dataLimits[1] - dataLimits[0])  // Or float64(lineLength) for 0 X ?
+	yincr := areaHeight / (dataLimits[3] - dataLimits[2]) // Or float64(lineLength) for 0 Y ?
 	for i := 0; i < lineLength; i++ {
 		xs[i] = xincr * float64(i)
-		ys[i] = (yincr * inputData[1][i]) - yincr*dataLimits[2]
+		ys[i] = (yincr * inputData[1][i]) - yincr*dataLimits[2] + (yoffBottom - yoffTop)
 	}
 	return xs, ys
 }
@@ -127,7 +150,7 @@ func (areaHandler) Draw(a *ui.Area, p *ui.AreaDrawParams) {
 
 	path.NewFigure(xs[0], graphHeight-ys[0])
 	for i := 1; i < lineLength; i++ {
-		path.LineTo(xs[i], graphHeight-10-ys[i])
+		path.LineTo(xs[i], graphHeight-ys[i])
 	}
 
 	path.End()
@@ -197,6 +220,26 @@ func (areaHandler) KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) (handled bool) {
 
 func setupUI() {
 	inputData = getData("indy-500-laps")
+	vBoxFiles := ui.NewVerticalBox()
+	for i := 1; i < len(datasetNames); i++ {
+		cb := ui.NewCheckbox(datasetNames[i])
+		if i == 1 {
+			cb.SetChecked(true)
+			datasetSelected = append(datasetSelected, 1)
+		}
+		cb.OnToggled(func(checkbox *ui.Checkbox) {
+			//TODO: retrieve i and add/remove it from datasetSelected, then refreshLimits(), then redraw selected
+			if cb.Checked() {
+				fmt.Println(cb.Text(), "checked")
+			} else {
+				fmt.Println(cb.Text(), "unchecked")
+			}
+			fmt.Println(dataLimits)
+		})
+		vBoxFiles.Append(cb, false)
+	}
+
+	refreshLimits()
 	mainwin := ui.NewWindow("Figure 1", 640, 480, true)
 	mainwin.SetMargined(false)
 	mainwin.OnClosing(func(*ui.Window) bool {
@@ -212,11 +255,6 @@ func setupUI() {
 	vboxMain := ui.NewVerticalBox()
 
 	histogram = ui.NewArea(areaHandler{})
-
-	vBoxFiles := ui.NewVerticalBox()
-	for _, datasetName := range datasetNames {
-		vBoxFiles.Append(ui.NewCheckbox(datasetName), false)
-	}
 
 	hboxGraphAndFiles := ui.NewHorizontalBox()
 	hboxGraphAndFiles.Append(histogram, false)
