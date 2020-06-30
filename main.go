@@ -21,7 +21,7 @@ var (
 	//graphDimensions [2]int64
 )
 
-// some metrics
+// Margins
 const (
 	xoffLeft    = 30 // histogram margins
 	yoffTop     = 20
@@ -44,7 +44,6 @@ func mkSolidBrush(color uint32, alpha float64) *ui.DrawBrush {
 	return brush
 }
 
-// and some colors
 const (
 	colorWhite      = 0xFFFFFF
 	colorBlack      = 0x000000
@@ -56,17 +55,11 @@ func getData(filename string) [][]float64 {
 	datasetNames = columnNames
 	datas := make([][]float64, len(csvData[0]))
 
-	//dataLimits = [5]float64{csvData[0][0], csvData[len(csvData)-1][0], csvData[0][1], csvData[0][1], float64(len(csvData))}
 	for i := 0; i < len(csvData); i++ { //all lines
 		//timestamps = append(timestamps, time.Date(int(deviceData[0]), 1, 1, 0, 0, 0, 0, time.UTC))
 		datas[0] = append(datas[0], csvData[i][0])
 		datas[1] = append(datas[1], csvData[i][1])
 		datas[2] = append(datas[2], csvData[i][2])
-		/*if csvData[i][1] > dataLimits[3] {
-			dataLimits[3] = csvData[i][1]
-		} else if csvData[i][1] < dataLimits[2] {
-			dataLimits[2] = csvData[i][1]
-		}*/
 	}
 	return datas
 }
@@ -160,7 +153,9 @@ func (areaHandler) Draw(a *ui.Area, p *ui.AreaDrawParams) {
 	// now draw the point being hovered over
 	if currentPoint != -1 {
 		path = ui.DrawNewPath(ui.DrawFillModeWinding)
-		path.NewFigureWithArc(xs[currentPoint], graphHeight-ys[currentPoint]-10, pointRadius, 0, 6.23, false)
+		path.NewFigureWithArc(xs[currentPoint], graphHeight-ys[currentPoint], pointRadius, 0, 6.23, false)
+		//TODO: detect which grah we are hovering
+		positionLabel.SetText("X:" + fmt.Sprintf("%f", inputData[0][currentPoint]) + "\t Y:" + fmt.Sprintf("%f", inputData[datasetSelected[0]][currentPoint]))
 		path.End()
 		// use the same brush as for the histogram lines
 		p.Context.Fill(path, brush)
@@ -171,7 +166,7 @@ func (areaHandler) Draw(a *ui.Area, p *ui.AreaDrawParams) {
 func inPoint(x, y float64, xtest, ytest float64) bool {
 	// TODO switch to using a matrix
 	x -= xoffLeft
-	y -= yoffTop
+	y -= yoffBottom //(yoffBottom - yoffTop)
 	return (x >= xtest-pointRadius) &&
 		(x <= xtest+pointRadius) &&
 		(y >= ytest-pointRadius) &&
@@ -216,6 +211,10 @@ func (areaHandler) DragBroken(a *ui.Area) {
 func (areaHandler) KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) (handled bool) {
 	// reject all keys
 	return false
+}
+
+func getColumnIfFromDatasetName(datasetName string) (ret int64) {
+	return ret
 }
 
 func setupUI() {
