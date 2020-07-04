@@ -213,7 +213,12 @@ func (areaHandler) KeyEvent(a *ui.Area, ke *ui.AreaKeyEvent) (handled bool) {
 	return false
 }
 
-func getColumnIfFromDatasetName(datasetName string) (ret int64) {
+func getColumnIFromDatasetName(datasetName string) (ret int64) {
+	for i, dsName := range datasetNames {
+		if dsName == datasetName {
+			return int64(i)
+		}
+	}
 	return ret
 }
 
@@ -227,12 +232,13 @@ func setupUI() {
 			datasetSelected = append(datasetSelected, 1)
 		}
 		cb.OnToggled(func(checkbox *ui.Checkbox) {
-			//TODO: retrieve i and add/remove it from datasetSelected, then refreshLimits(), then redraw selected
+			//TODO: add/remove retrieved i it from datasetSelected, then refreshLimits(), then redraw selected
 			if cb.Checked() {
-				fmt.Println(cb.Text(), "checked")
+				fmt.Println(getColumnIFromDatasetName(cb.Text()), "checked")
 			} else {
-				fmt.Println(cb.Text(), "unchecked")
+				fmt.Println(getColumnIFromDatasetName(cb.Text()), "unchecked")
 			}
+			refreshLimits()
 			fmt.Println(dataLimits)
 		})
 		vBoxFiles.Append(cb, false)
